@@ -2,29 +2,23 @@
 session_start();
 include 'game_data.php';
 
-// Get category and points from query string
 $cat = $_GET['cat'] ?? null;
 $pts = intval($_GET['pts'] ?? 0);
 
-// Validate inputs
 if (!$cat || !in_array($cat, $categories) || !isset($questions[$cat][$pts])) {
     die("Invalid category or points.");
 }
 
-// Initialize used questions tracker in session
 if (!isset($_SESSION['used_questions'])) {
     $_SESSION['used_questions'] = [];
 }
 
-// Initialize shuffled questions per category and points in session
 if (!isset($_SESSION['shuffled_questions'])) {
     $_SESSION['shuffled_questions'] = [];
 }
 
-// Create a unique key for the category and points
 $key = $cat . '-' . $pts;
 
-// If this is the first time for this category and points, shuffle and store
 if (!isset($_SESSION['shuffled_questions'][$key])) {
     $qList = $questions[$cat][$pts];
     shuffle($qList);
@@ -34,22 +28,21 @@ if (!isset($_SESSION['shuffled_questions'][$key])) {
 $used = $_SESSION['used_questions'];
 $availableQuestions = $_SESSION['shuffled_questions'][$key];
 
-// Filter out used questions for this key
 $unusedQuestions = array_filter($availableQuestions, function($q) use ($used, $key) {
-    return !in_array($key . '-' . md5($q), $used);
+    return !in_array($key . '-' . md5($q['q']), $used);
 });
 
-// Pick the first unused question or show message if none left
 if (empty($unusedQuestions)) {
-    $question = "No more questions available for " . htmlspecialchars($cat) . " at " . $pts . " points.";
+    $questionText = "No more questions available for " . htmlspecialchars($cat) . " at " . $pts . " points.";
+    $answerText = "";
 } else {
-    // Get the first unused question
-    $question = reset($unusedQuestions);
-
-    // Mark this question as used
-    $_SESSION['used_questions'][] = $key . '-' . md5($question);
+    $questionData = reset($unusedQuestions);
+    $questionText = $questionData['q'];
+    $answerText = $questionData['a'];
+    $_SESSION['used_questions'][] = $key . '-' . md5($questionText);
 }
 ?>
+
     <script>
         function closeModal() {
             window.close();
@@ -57,10 +50,17 @@ if (empty($unusedQuestions)) {
     </script>
 </head>
 <body>
-    <div class="popup">
-        <h2><?= htmlspecialchars($cat) ?> for <?= $pts ?> points</h2>
-        <p><strong><?= htmlspecialchars($question) ?></strong></p>
-        <button onclick="closeModal()">Close</button>
+<div class="popup">
+    <h2><?= htmlspecialchars($cat) ?> </h2> (<?= $pts ?> points)
+    <h3> <p><strong><?= htmlspecialchars($questionText) ?></strong></p></h3>
+   
+    <div id="answer" style="display:none; margin-top: 10px; font-weight: bold;">
+        Answer: <?= htmlspecialchars($answerText) ?>
     </div>
+    <button onclick="document.getElementById('answer').style.display='block';" style="margin-top: 8px;">Reveal Answer</button> <br>
+    <button onclick="closeModal()" style="font-size: 1em; padding: 4px 8px; margin-top: 35px; background-color: #e74c3c; color: white; border: none; border-radius: 6px;">Close</button>
+</div>
+
+    
 </body>
 </html>

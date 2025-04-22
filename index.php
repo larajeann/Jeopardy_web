@@ -155,7 +155,7 @@ function showWinner() {
     </script>
 </head>
 <body>
-    <h2>Jeopardy Game</h2>
+    <h2>Let's Play!</h2>
 
     <div class="main-content">
     <?php
