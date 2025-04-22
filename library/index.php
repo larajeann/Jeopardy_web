@@ -1,0 +1,188 @@
+<?php
+session_start();
+include 'game_data.php';
+
+if (!isset($_SESSION['teams'])) {
+    header("Location: team_setup.php");
+    exit();
+}
+
+if (!isset($_SESSION['used_questions'])) {
+    $_SESSION['used_questions'] = [];
+}
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jeopardy Game</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <script>
+ function showQuestion(category, points) {
+    const key = `${category}-${points}`;
+
+    fetch(`question_popup.php?cat=${category}&pts=${points}`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('modal-content').innerHTML = html;
+            document.getElementById('question-modal').style.display = 'flex';
+
+            // Disable the button in the UI
+            const btn = document.querySelector(`button[data-key='${key}']`);
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('disabled');
+                btn.innerHTML = 'X';
+            }
+
+            // Check if all questions are now used
+            checkAllQuestionsUsed();
+        });
+}
+
+    function closeModal() {
+        document.getElementById('question-modal').style.display = 'none';
+    }
+    
+    function updateScore(team, points) {
+    fetch(`update_score.php?team=${encodeURIComponent(team)}&points=${points}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Find all team score elements
+                const teamElements = document.querySelectorAll('.team-score');
+                
+                teamElements.forEach(element => {
+                    // Get the team name from the first div
+                    const teamNameElement = element.querySelector('div:first-child');
+                    const teamName = teamNameElement.textContent.trim();
+                    
+                    // Check for exact match
+                    if (teamName === team) {
+                        // Update the score display
+                        const scoreElement = element.querySelector('div:nth-child(2)');
+                        scoreElement.textContent = `Score: ${data.newScore}`;
+                        
+                        // Add visual feedback
+                        element.classList.remove('score-up', 'score-down');
+                        void element.offsetWidth; // Trigger reflow
+                        element.classList.add(points > 0 ? 'score-up' : 'score-down');
+                    }
+                });
+            } else {
+                console.error('Failed to update score');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+function checkAllQuestionsUsed() {
+    fetch('check_questions.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.allUsed) {
+                // Show the finish button
+                const finishBtn = document.createElement('button');
+                finishBtn.className = 'finish-btn';
+                finishBtn.textContent = 'Finish Game 🎉';
+                finishBtn.onclick = showWinner;
+                
+                // Add it to the page (you might want to put it in a specific container)
+                document.body.appendChild(finishBtn);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+    
+function showWinner() {
+    fetch('get_scores.php')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const teams = data.teams;
+                const scores = Object.values(teams);
+                const maxScore = Math.max(...scores);
+                const winners = Object.keys(teams).filter(team => teams[team] === maxScore);
+
+                let message = winners.length > 1
+                    ? `🏆 It's a tie between: ${winners.join(', ')} with ${maxScore} points!`
+                    : `🏆 Good Fun ${winners[0]}!<br> You won with ${maxScore} points!`;
+
+                    document.getElementById('modal-content').innerHTML = `
+                    <h2 style="color: #FFCC00;">Congratulations!</h2>
+                    <p style="font-size: 1.4em; color: white; font-weight: bold;">${message}</p>
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <button class="reset-btn" onclick="location.href='reset.php'">New Game</button>
+                        <button class="finish-btn" onclick="closeModal()">Close</button>
+                    </div>
+                `;
+                document.getElementById('question-modal').style.display = 'flex';
+            } else {
+                console.error('Failed to get scores');
+            }
+        })
+        .catch(error => console.error('Error:', error));
+}
+    </script>
+</head>
+<body>
+    <h2>Jeopardy Game</h2>
+    <?php
+    $totalQuestions = count($categories) * 5;
+    $usedQuestions = count($_SESSION['used_questions']);
+    $allUsed = $usedQuestions >= $totalQuestions;
+    ?>
+    <table>
+        <tr>
+            <?php foreach ($categories as $category): ?>
+                <th><?= $category ?></th>
+            <?php endforeach; ?>
+        </tr>
+        <?php for ($i = 0; $i < 5; $i++): ?>
+            <tr>
+                <?php foreach ($categories as $category): 
+                    $points = ($i + 1) * 100;
+                    $key = "$category-$points";
+                ?>
+                    <td>
+                        <?php if (!in_array($key, $_SESSION['used_questions'])): ?>
+                            <button class="question-btn" onclick="showQuestion('<?= $category ?>', <?= $points ?>)" data-key="<?= $key ?>">
+                                <?= $points ?>
+                            </button>
+                        <?php else: ?>
+                            <span class="disabled">X</span>
+                        <?php endif; ?>
+                    </td>
+                <?php endforeach; ?>
+            </tr>
+        <?php endfor; ?>
+    </table>
+    
+    <div id="question-modal">
+        <div class="modal-content" id="modal-content">
+            <!-- Question content will be loaded here -->
+        </div>
+    </div>
+    
+    <div class="scores">
+        <?php foreach ($_SESSION['teams'] as $team => $score): ?>
+            <div class="team-score">
+    <div><?= htmlspecialchars($team) ?></div>
+    <div>Score: <?= $score ?></div>
+    <div class="score-controls">
+        <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', 100); return false;">+100</a>
+        <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', -100); return false;">-100</a>
+    </div>
+</div>
+        <?php endforeach; ?>
+    </div>
+  
+    <div id="finish-button-container">
+    <?php if ($allUsed): ?>
+        <button onclick="showWinner()" class="finish-btn">Finished Game</button>
+    <?php endif; ?>
+</div>
+    <a href="reset.php" class="reset-btn">Reset Game</a>
+  
+
+</body>
+</html>
