@@ -18,8 +18,8 @@ $question = $questions[$key] ?? "No question found.";
 <head><title>Question</title></head>
 <body>
 
-    <h3><?= $cat ?> for <?= $pts ?> points</h3>
-    <p><?= $question ?></p>
+    <h2><?= $cat ?> for <?= $pts ?> points</h2>
+    <strong><p><?= $question ?></p></strong>
     <button onclick="closeModal()">Close</button>
 </body>
 </html>

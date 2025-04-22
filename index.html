@@ -18,16 +18,29 @@ if (!isset($_SESSION['used_questions'])) {
     <title>Jeopardy Game</title>
     <link rel="stylesheet" href="assets/style.css">
     <script>
- function showQuestion(category, points) {
+        
+        function showQuestion(category, points) {
     const key = `${category}-${points}`;
 
     fetch(`question_popup.php?cat=${category}&pts=${points}`)
         .then(response => response.text())
         .then(html => {
-            document.getElementById('modal-content').innerHTML = html;
+            // Inject only the question content and the close button
+            document.getElementById('modal-content').innerHTML = `
+                ${html}
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            `;
             document.getElementById('question-modal').style.display = 'flex';
 
-            // Disable the button in the UI
+            // Style question buttons if needed
+            const questionButtons = document.querySelectorAll('#modal-content button:not(.close-modal)');
+            questionButtons.forEach(btn => {
+                if (!btn.classList.contains('modal-btn')) {
+                    btn.className = 'modal-btn modal-btn-primary';
+                }
+            });
+
+            // Disable the board button
             const btn = document.querySelector(`button[data-key='${key}']`);
             if (btn) {
                 btn.disabled = true;
@@ -35,10 +48,11 @@ if (!isset($_SESSION['used_questions'])) {
                 btn.innerHTML = 'X';
             }
 
-            // Check if all questions are now used
+            // Check if all questions are used
             checkAllQuestionsUsed();
         });
 }
+
 
     function closeModal() {
         document.getElementById('question-modal').style.display = 'none';
@@ -75,24 +89,23 @@ if (!isset($_SESSION['used_questions'])) {
         })
         .catch(error => console.error('Error:', error));
 }
+
 function checkAllQuestionsUsed() {
     fetch('check_questions.php')
         .then(response => response.json())
         .then(data => {
             if (data.allUsed) {
-                // Show the finish button
-                const finishBtn = document.createElement('button');
-                finishBtn.className = 'finish-btn';
-                finishBtn.textContent = 'Finish Game 🎉';
-                finishBtn.onclick = showWinner;
-                
-                // Add it to the page (you might want to put it in a specific container)
-                document.body.appendChild(finishBtn);
+                const container = document.getElementById('finish-button-container');
+                // Only add button if it doesn't already exist
+                if (!container.querySelector('.finish-btn')) {
+                    container.innerHTML = `
+                        <button onclick="showWinner()" class="finish-btn">Finish Game 🎉</button>
+                    `;
+                }
             }
         })
         .catch(error => console.error('Error:', error));
 }
-    
 function showWinner() {
     fetch('get_scores.php')
         .then(res => res.json())
@@ -108,12 +121,13 @@ function showWinner() {
                     : `🏆 Good Fun ${winners[0]}!<br> You won with ${maxScore} points!`;
 
                     document.getElementById('modal-content').innerHTML = `
-                    <h2 style="color: #FFCC00;">Congratulations!</h2>
-                    <p style="font-size: 1.4em; color: white; font-weight: bold;">${message}</p>
-                    <div style="display: flex; flex-direction: column; align-items: center;">
-                        <button class="reset-btn" onclick="location.href='reset.php'">New Game</button>
-                        <button class="finish-btn" onclick="closeModal()">Close</button>
+                    <h2>Congratulations!</h2>
+                    <p style="font-size: 1.4em; font-weight: bold;">${message}</p>
+                    <div class="modal-buttons">
+                        <button class="modal-btn modal-btn-primary" onclick="location.href='reset.php'">New Game</button>
+                        <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Close</button>
                     </div>
+                    <button class="close-modal" onclick="closeModal()">&times;</button>
                 `;
                 document.getElementById('question-modal').style.display = 'flex';
             } else {
@@ -126,6 +140,8 @@ function showWinner() {
 </head>
 <body>
     <h2>Jeopardy Game</h2>
+
+    <div class="main-content">
     <?php
     $totalQuestions = count($categories) * 5;
     $usedQuestions = count($_SESSION['used_questions']);
@@ -156,31 +172,31 @@ function showWinner() {
             </tr>
         <?php endfor; ?>
     </table>
-    
     <div id="question-modal">
         <div class="modal-content" id="modal-content">
             <!-- Question content will be loaded here -->
         </div>
     </div>
-    
+    </div>
+
     <div class="scores">
         <?php foreach ($_SESSION['teams'] as $team => $score): ?>
             <div class="team-score">
     <div><?= htmlspecialchars($team) ?></div>
     <div>Score: <?= $score ?></div>
-    <div class="score-controls">
-        <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', 100); return false;">+100</a>
-        <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', -100); return false;">-100</a>
+        <div class="score-controls">
+            <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', 100); return false;">+100</a>
+            <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', -100); return false;">-100</a>
+        </div>
     </div>
-</div>
         <?php endforeach; ?>
     </div>
   
     <div id="finish-button-container">
-    <?php if ($allUsed): ?>
-        <button onclick="showWinner()" class="finish-btn">Finished Game</button>
-    <?php endif; ?>
-</div>
+        <?php if ($allUsed): ?>
+            <button onclick="showWinner()" class="finish-btn">Finish Game 🎉</button>
+        <?php endif; ?>
+    </div>
     <a href="reset.php" class="reset-btn">Reset Game</a>
   
 
