@@ -97,6 +97,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-bottom: 15px;
             animation: fadeIn 0.5s ease-out;
         }
+        #team_inputs {
+            margin-top: 20px;
+        }
+
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -104,25 +108,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </style>
     <script>
-        function showInputs() {
-            const count = document.getElementById('num_teams').value;
-            let container = document.getElementById('team_inputs');
-            container.innerHTML = '';
-            
-            for (let i = 1; i <= count; i++) {
-                const div = document.createElement('div');
-                div.className = 'team-input';
-                div.innerHTML = `
-                    <label for="team_${i}">Team ${i} Name:</label>
-                    <input type="text" name="team_${i}" id="team_${i}" required>
-                `;
-                container.appendChild(div);
-                
-                // Add animation delay for each input
-                div.style.animationDelay = `${i * 0.1}s`;
-            }
+    function showInputs() {
+        const count = parseInt(document.getElementById('num_teams').value);
+        const container = document.getElementById('team_inputs');
+        container.innerHTML = '';
+        container.style.display = 'grid';
+        container.style.gridTemplateColumns = '1fr 1fr';
+        container.style.gap = '20px';
+
+        for (let i = 1; i <= count; i++) {
+            const div = document.createElement('div');
+            div.className = 'team-input';
+            div.innerHTML = `
+                <label for="team_${i}">Team ${i} Name:</label>
+                <input type="text" name="team_${i}" id="team_${i}" required>
+            `;
+            container.appendChild(div);
         }
-    </script>
+    }
+</script>
+
 </head>
 <body>
     <div class="setup-container">

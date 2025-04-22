@@ -10,6 +10,7 @@ if (!isset($_SESSION['teams'])) {
 if (!isset($_SESSION['used_questions'])) {
     $_SESSION['used_questions'] = [];
 }
+ 
 ?>
 
 <!DOCTYPE html>
@@ -57,8 +58,15 @@ if (!isset($_SESSION['used_questions'])) {
     function closeModal() {
         document.getElementById('question-modal').style.display = 'none';
     }
-    
-    function updateScore(team, points) {
+
+
+function updateScore(team, points, currentScore = null) {
+    // Prevent score from going below zero for deductions
+    if (points < 0 && currentScore !== null && currentScore + points < 0) {
+        alert("Score cannot go below zero!");
+        return false;
+    }
+
     fetch(`update_score.php?team=${encodeURIComponent(team)}&points=${points}`)
         .then(res => res.json())
         .then(data => {
@@ -75,12 +83,20 @@ if (!isset($_SESSION['used_questions'])) {
                     if (teamName === team) {
                         // Update the score display
                         const scoreElement = element.querySelector('div:nth-child(2)');
-                        scoreElement.textContent = `Score: ${data.newScore}`;
+                        const newScore = data.newScore;
+                        scoreElement.textContent = `Score: ${newScore}`;
                         
                         // Add visual feedback
                         element.classList.remove('score-up', 'score-down');
                         void element.offsetWidth; // Trigger reflow
                         element.classList.add(points > 0 ? 'score-up' : 'score-down');
+                        
+                        // Disable -100 button if score would go below zero
+                        const minusBtn = element.querySelector('a[onclick*="-100"]');
+                        if (minusBtn) {
+                            minusBtn.style.opacity = newScore < 100 ? '0.5' : '1';
+                            minusBtn.style.pointerEvents = newScore < 100 ? 'none' : 'auto';
+                        }
                     }
                 });
             } else {
@@ -160,13 +176,23 @@ function showWinner() {
                     $key = "$category-$points";
                 ?>
                     <td>
-                        <?php if (!in_array($key, $_SESSION['used_questions'])): ?>
-                            <button class="question-btn" onclick="showQuestion('<?= $category ?>', <?= $points ?>)" data-key="<?= $key ?>">
-                                <?= $points ?>
-                            </button>
-                        <?php else: ?>
-                            <span class="disabled">X</span>
-                        <?php endif; ?>
+                    <?php
+$isUsed = false;
+foreach ($_SESSION['used_questions'] as $usedKey) {
+    if (strpos($usedKey, $key . '-') === 0) {
+        $isUsed = true;
+        break;
+    }
+}
+?>
+<?php if (!$isUsed): ?>
+    <button class="question-btn" onclick="showQuestion('<?= $category ?>', <?= $points ?>)" data-key="<?= $key ?>">
+        <?= $points ?>
+    </button>
+<?php else: ?>
+    <span class="disabled">X</span>
+<?php endif; ?>
+
                     </td>
                 <?php endforeach; ?>
             </tr>
@@ -180,17 +206,19 @@ function showWinner() {
     </div>
 
     <div class="scores">
-        <?php foreach ($_SESSION['teams'] as $team => $score): ?>
-            <div class="team-score">
-    <div><?= htmlspecialchars($team) ?></div>
-    <div>Score: <?= $score ?></div>
-        <div class="score-controls">
-            <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', 100); return false;">+100</a>
-            <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', -100); return false;">-100</a>
+    <?php foreach ($_SESSION['teams'] as $team => $score): ?>
+        <div class="team-score">
+            <div><?= htmlspecialchars($team) ?></div>
+            <div>Score: <?= $score ?></div>
+            <div class="score-controls">
+                <a href="#" onclick="updateScore('<?= htmlspecialchars($team) ?>', 100); return false;">+100</a>
+                <a href="#" onclick="const current = parseInt(this.closest('.team-score').querySelector('div:nth-child(2)').textContent.replace(/\D/g, '')); updateScore('<?= htmlspecialchars($team) ?>', -100, current); return false;">-100</a>
+
+            </div>
         </div>
-    </div>
-        <?php endforeach; ?>
-    </div>
+    <?php endforeach; ?>
+</div>
+
   
     <div id="finish-button-container">
         <?php if ($allUsed): ?>
